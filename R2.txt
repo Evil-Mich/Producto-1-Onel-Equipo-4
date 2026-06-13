@@ -1,0 +1,84 @@
+hostname R2
+
+ip domain-name itla.local
+username equipo4 privilege 15 secret equipo4
+enable secret equipo4
+crypto key generate rsa modulus 1024
+
+line con 0
+logging synchronous
+exit
+
+line vty 0 4
+login local
+transport input ssh
+exit
+
+ipv6 unicast-routing
+
+interface s5/0
+description Enlace WAN hacia R1-Core - Area 0
+ip address 172.22.10.162 255.255.255.252
+ipv6 address 2001:25:22:9::2/64
+no shutdown
+exit
+
+interface e0/0
+description Troncal hacia SWA13
+no shutdown
+exit
+
+interface e0/0.30
+description VLAN 30 - Academicos
+encapsulation dot1Q 30
+ip address 172.22.9.1 255.255.255.128
+ipv6 address 2001:25:22:2::1/64
+ip helper-address 172.22.10.165
+exit
+
+interface e0/0.40
+description VLAN 40 - Finanzas
+encapsulation dot1Q 40
+ip address 172.22.9.129 255.255.255.128
+ipv6 address 2001:25:22:3::1/64
+ip helper-address 172.22.10.165
+exit
+
+interface e0/1
+description Hacia SW
+ip address 172.22.10.1 255.255.255.192
+ipv6 address 2001:25:22:4::1/64
+ip helper-address 172.22.10.165
+no shutdown
+exit
+
+router ospf 1
+router-id 5.5.5.5
+network 172.22.10.160 0.0.0.3 area 0
+network 172.22.9.0 0.0.0.127 area 1
+network 172.22.9.128 0.0.0.127 area 1
+network 172.22.10.0 0.0.0.63 area 1
+exit
+
+ipv6 router ospf 1
+router-id 5.5.5.5
+exit
+
+interface s5/0
+ipv6 ospf 1 area 0
+exit
+
+interface e0/0.30
+ipv6 ospf 1 area 1
+exit
+
+interface e0/0.40
+ipv6 ospf 1 area 1
+exit
+
+interface e0/1
+ipv6 ospf 1 area 1
+exit
+
+end
+write memory

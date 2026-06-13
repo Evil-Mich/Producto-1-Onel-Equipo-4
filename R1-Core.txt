@@ -1,0 +1,83 @@
+R1
+enable
+configure terminal
+no logging console
+hostname R1-Core
+no ip domain-lookup
+
+! --- Configuración Básica, Usuario y SSH ---
+ip domain-name itla.local
+username equipo4 privilege 15 secret equipo4
+enable secret equipo4
+crypto key generate rsa modulus 1024
+
+line con 0
+ logging synchronous
+exit
+line vty 0 4
+ login local
+ transport input ssh
+exit
+
+ipv6 unicast-routing
+
+! --- Interfaces ---
+interface e0/0
+ description Conexion a SWM1
+ ip address 172.22.10.166 255.255.255.252
+ ipv6 address 2001:25:22:A::2/64
+ no shutdown
+exit
+
+interface e0/1
+ description Conexion a SWM2
+ ip address 172.22.10.170 255.255.255.252
+ ipv6 address 2001:25:22:B::2/64
+ no shutdown
+exit
+
+interface s5/0
+ description Enlace WAN hacia R2
+ ip address 172.22.10.161 255.255.255.252
+ ipv6 address 2001:25:22:9::1/64
+ no shutdown
+exit
+
+interface e0/2
+ description Enlace hacia ISP
+ ip address 192.168.100.2 255.255.255.252
+ ipv6 address 2001:db8:100::2/64
+ no shutdown
+exit
+
+! --- Rutas por Defecto ---
+ip route 0.0.0.0 0.0.0.0 192.168.100.1
+ipv6 route ::/0 2001:db8:100::1
+
+! --- OSPFv2 (IPv4) ---
+router ospf 1
+ router-id 4.4.4.4
+ network 172.22.10.160 0.0.0.3 area 0
+ network 172.22.10.164 0.0.0.3 area 0
+ network 172.22.10.168 0.0.0.3 area 0
+ default-information originate
+exit
+
+! --- OSPFv3 (IPv6) ---
+ipv6 router ospf 1
+ router-id 4.4.4.4
+exit
+
+interface e0/0
+ ipv6 ospf 1 area 0
+exit
+interface e0/1
+ ipv6 ospf 1 area 0
+exit
+interface s5/0
+ ipv6 ospf 1 area 0
+exit
+
+logging console
+do write
+end
