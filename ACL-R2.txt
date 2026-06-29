@@ -1,0 +1,83 @@
+! ============================================================
+!  ACLs - R2 | Equipo 4 | ITLA
+!  Aplicadas en subinterfaces de R2 (sucursal)
+!  ACLs extendidas nombradas - aplicadas inbound
+! ============================================================
+enable
+configure terminal
+
+! ============================================================
+!  ACL VLAN 30 - ACADEMICOS
+!  Politica: acceso a Internet y Datacenter, NO a Finanzas
+! ============================================================
+ip access-list extended ACL_ACADEMICOS_IN
+ remark === Permitir DHCP relay ===
+ permit udp any host 255.255.255.255 eq 67
+ permit udp any host 172.22.10.165 eq 67
+ remark === Permitir DNS ===
+ permit udp any any eq 53
+ permit tcp any any eq 53
+ remark === Bloquear acceso a Finanzas ===
+ deny ip 172.22.9.0 0.0.0.127 172.22.9.128 0.0.0.127
+ remark === Bloquear acceso a Gestion campus ===
+ deny ip 172.22.9.0 0.0.0.127 172.22.10.64 0.0.0.31
+ remark === Bloquear Blackholes ===
+ deny ip 172.22.9.0 0.0.0.127 172.22.10.128 0.0.0.15
+ deny ip 172.22.9.0 0.0.0.127 172.22.10.144 0.0.0.15
+ remark === Permitir acceso a Datacenter ===
+ permit ip 172.22.9.0 0.0.0.127 172.22.10.0 0.0.0.63
+ remark === Permitir acceso a campus (Estudiantes, Docentes) ===
+ permit ip 172.22.9.0 0.0.0.127 172.22.0.0 0.0.7.255
+ permit ip 172.22.9.0 0.0.0.127 172.22.8.0 0.0.0.255
+ remark === Permitir salida a Internet ===
+ permit ip 172.22.9.0 0.0.0.127 any
+exit
+
+! ============================================================
+!  ACL VLAN 40 - FINANZAS
+!  Politica: aislada, solo Gestion y Datacenter pueden
+!  acceder a Finanzas. Finanzas solo sale a Datacenter e Internet
+! ============================================================
+ip access-list extended ACL_FINANZAS_IN
+ remark === Permitir DHCP relay ===
+ permit udp any host 255.255.255.255 eq 67
+ permit udp any host 172.22.10.165 eq 67
+ remark === Permitir DNS ===
+ permit udp any any eq 53
+ permit tcp any any eq 53
+ remark === Bloquear acceso a VLANs campus (excepto Datacenter) ===
+ deny ip 172.22.9.128 0.0.0.127 172.22.0.0 0.0.7.255
+ deny ip 172.22.9.128 0.0.0.127 172.22.8.0 0.0.0.255
+ deny ip 172.22.9.128 0.0.0.127 172.22.9.0 0.0.0.127
+ deny ip 172.22.9.128 0.0.0.127 172.22.10.64 0.0.0.31
+ deny ip 172.22.9.128 0.0.0.127 172.22.10.96 0.0.0.31
+ deny ip 172.22.9.128 0.0.0.127 172.22.10.128 0.0.0.15
+ deny ip 172.22.9.128 0.0.0.127 172.22.10.144 0.0.0.15
+ remark === Permitir acceso a Datacenter ===
+ permit ip 172.22.9.128 0.0.0.127 172.22.10.0 0.0.0.63
+ remark === Permitir salida a Internet ===
+ permit ip 172.22.9.128 0.0.0.127 any
+exit
+
+! ============================================================
+!  ACL VLAN 90 - BLACKHOLE R2
+!  Politica: bloquear absolutamente todo
+! ============================================================
+ip access-list extended ACL_BLACKHOLE_R2_IN
+ remark === Blackhole: denegar todo trafico ===
+ deny ip any any
+exit
+
+! ============================================================
+!  APLICAR ACLs en subinterfaces de R2 (inbound)
+! ============================================================
+interface e0/0.30
+ ip access-group ACL_ACADEMICOS_IN in
+exit
+
+interface e0/0.40
+ ip access-group ACL_FINANZAS_IN in
+exit
+
+end
+write memory

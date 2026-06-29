@@ -1,0 +1,73 @@
+! ============================================================
+!  ACLs - R1-Core | Equipo 4 | ITLA
+!  ACL en interfaz WAN (e0/2) hacia ISP
+!  Controla trafico que sale/entra de Internet
+! ============================================================
+enable
+configure terminal
+
+! ============================================================
+!  ACL SALIDA A INTERNET (outbound en e0/2 hacia ISP)
+!  Politica: solo Estudiantes, Docentes, Academicos pueden
+!  salir a Internet. Finanzas y Gestion solo trafico esencial.
+!  Bloquear que redes internas sean accesibles desde Internet.
+! ============================================================
+ip access-list extended ACL_INTERNET_OUT
+ remark === Permitir HTTP/HTTPS desde campus y sucursal ===
+ permit tcp 172.22.0.0 0.1.255.255 any eq 80
+ permit tcp 172.22.0.0 0.1.255.255 any eq 443
+ remark === Permitir DNS saliente ===
+ permit udp 172.22.0.0 0.1.255.255 any eq 53
+ permit tcp 172.22.0.0 0.1.255.255 any eq 53
+ remark === Permitir ICMP saliente (ping a Internet) ===
+ permit icmp 172.22.0.0 0.1.255.255 any
+ remark === Bloquear todo lo demas hacia Internet ===
+ deny ip any any
+exit
+
+! ============================================================
+!  ACL ENTRADA DESDE INTERNET (inbound en e0/2 desde ISP)
+!  Politica: bloquear acceso directo desde Internet
+!  a redes internas (anti-spoofing + seguridad perimetral)
+! ============================================================
+ip access-list extended ACL_INTERNET_IN
+ remark === Bloquear spoofing de IPs internas desde Internet ===
+ deny ip 172.22.0.0 0.1.255.255 any
+ deny ip 10.0.0.0 0.255.255.255 any
+ deny ip 192.168.0.0 0.0.255.255 any
+ remark === Permitir trafico de retorno (established) ===
+ permit tcp any 172.22.0.0 0.1.255.255 established
+ remark === Permitir ICMP de retorno (echo-reply) ===
+ permit icmp any 172.22.0.0 0.1.255.255 echo-reply
+ remark === Bloquear todo lo demas desde Internet ===
+ deny ip any any
+exit
+
+! ============================================================
+!  ACL SSH - Solo Gestion puede hacer SSH a los equipos
+!  ACL estandar nombrada - aplicada en lineas VTY
+! ============================================================
+ip access-list standard ACL_SSH_ACCESO
+ remark === Solo VLAN Gestion (172.22.10.64/27) puede hacer SSH ===
+ permit 172.22.10.64 0.0.0.31
+ remark === Denegar todo lo demas ===
+ deny any
+exit
+
+! ============================================================
+!  APLICAR ACLs
+! ============================================================
+
+! --- ACL Internet en interfaz WAN ---
+interface e0/2
+ ip access-group ACL_INTERNET_IN in
+ ip access-group ACL_INTERNET_OUT out
+exit
+
+! --- Restringir SSH solo a VLAN Gestion ---
+line vty 0 4
+ access-class ACL_SSH_ACCESO in
+exit
+
+end
+write memory

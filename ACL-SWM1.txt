@@ -1,0 +1,118 @@
+! ============================================================
+!  ACLs - SWM1 | Equipo 4 | ITLA
+!  Aplicadas en las SVIs (interfaces VLAN) de SWM1
+!  ACLs extendidas nombradas - aplicadas inbound en cada SVI
+! ============================================================
+enable
+configure terminal
+
+! ============================================================
+!  ACL VLAN 10 - ESTUDIANTES
+!  Politica: solo pueden salir a Internet (via R1-Core)
+!  NO pueden acceder a otras VLANs internas
+! ============================================================
+ip access-list extended ACL_ESTUDIANTES_IN
+ remark === Permitir DHCP (solicitudes al servidor) ===
+ permit udp any host 255.255.255.255 eq 67
+ permit udp any host 172.22.10.165 eq 67
+ remark === Permitir DNS ===
+ permit udp any any eq 53
+ permit tcp any any eq 53
+ remark === Bloquear acceso a redes internas ===
+ deny ip 172.22.0.0 0.0.7.255 172.22.8.0 0.0.0.255
+ deny ip 172.22.0.0 0.0.7.255 172.22.9.0 0.0.0.127
+ deny ip 172.22.0.0 0.0.7.255 172.22.9.128 0.0.0.127
+ deny ip 172.22.0.0 0.0.7.255 172.22.10.0 0.0.0.63
+ deny ip 172.22.0.0 0.0.7.255 172.22.10.64 0.0.0.31
+ deny ip 172.22.0.0 0.0.7.255 172.22.10.96 0.0.0.31
+ deny ip 172.22.0.0 0.0.7.255 172.22.10.128 0.0.0.15
+ remark === Permitir salida a Internet ===
+ permit ip 172.22.0.0 0.0.7.255 any
+exit
+
+! ============================================================
+!  ACL VLAN 20 - DOCENTES
+!  Politica: acceso a Internet y Datacenter, NO a Finanzas
+! ============================================================
+ip access-list extended ACL_DOCENTES_IN
+ remark === Permitir DHCP ===
+ permit udp any host 255.255.255.255 eq 67
+ permit udp any host 172.22.10.165 eq 67
+ remark === Permitir DNS ===
+ permit udp any any eq 53
+ permit tcp any any eq 53
+ remark === Bloquear acceso a Finanzas ===
+ deny ip 172.22.8.0 0.0.0.255 172.22.9.128 0.0.0.127
+ remark === Bloquear acceso a Blackhole ===
+ deny ip 172.22.8.0 0.0.0.255 172.22.10.128 0.0.0.15
+ remark === Permitir acceso a Datacenter ===
+ permit ip 172.22.8.0 0.0.0.255 172.22.10.0 0.0.0.63
+ remark === Permitir acceso a otras VLANs campus y sucursal ===
+ permit ip 172.22.8.0 0.0.0.255 172.22.0.0 0.0.7.255
+ permit ip 172.22.8.0 0.0.0.255 172.22.9.0 0.0.0.127
+ permit ip 172.22.8.0 0.0.0.255 172.22.10.64 0.0.0.31
+ remark === Permitir salida a Internet ===
+ permit ip 172.22.8.0 0.0.0.255 any
+exit
+
+! ============================================================
+!  ACL VLAN 60 - GESTION
+!  Politica: acceso total (administradores de red)
+! ============================================================
+ip access-list extended ACL_GESTION_IN
+ remark === Gestion tiene acceso completo a toda la red ===
+ permit ip 172.22.10.64 0.0.0.31 any
+exit
+
+! ============================================================
+!  ACL VLAN 70 - VOZ
+!  Politica: solo trafico VoIP (UDP/RTP y SIP)
+! ============================================================
+ip access-list extended ACL_VOZ_IN
+ remark === Permitir DHCP ===
+ permit udp any host 255.255.255.255 eq 67
+ permit udp any host 172.22.10.165 eq 67
+ remark === Permitir SIP (señalizacion VoIP) ===
+ permit udp 172.22.10.96 0.0.0.31 any eq 5060
+ permit tcp 172.22.10.96 0.0.0.31 any eq 5060
+ remark === Permitir RTP (trafico de voz, rango tipico) ===
+ permit udp 172.22.10.96 0.0.0.31 any range 16384 32767
+ remark === Bloquear todo lo demas ===
+ deny ip any any
+exit
+
+! ============================================================
+!  ACL VLAN 80 - BLACKHOLE R1
+!  Politica: bloquear absolutamente todo
+! ============================================================
+ip access-list extended ACL_BLACKHOLE_R1_IN
+ remark === Blackhole: denegar todo trafico ===
+ deny ip any any
+exit
+
+! ============================================================
+!  APLICAR ACLs en las SVIs (inbound = trafico que entra
+!  desde los hosts hacia el switch L3)
+! ============================================================
+interface vlan 10
+ ip access-group ACL_ESTUDIANTES_IN in
+exit
+
+interface vlan 20
+ ip access-group ACL_DOCENTES_IN in
+exit
+
+interface vlan 60
+ ip access-group ACL_GESTION_IN in
+exit
+
+interface vlan 70
+ ip access-group ACL_VOZ_IN in
+exit
+
+interface vlan 80
+ ip access-group ACL_BLACKHOLE_R1_IN in
+exit
+
+end
+write memory
